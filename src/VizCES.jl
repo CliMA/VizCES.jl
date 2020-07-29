@@ -1,5 +1,5 @@
 module VizCES
 
-# Write your package code here.
+include("VizEKP.jl")
 
 end

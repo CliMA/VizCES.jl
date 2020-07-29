@@ -3,6 +3,13 @@ uuid = "b63e5096-c563-456e-9356-fa27bdb9962e"
 authors = ["Ignacio <ilopezgo@caltech.edu> and contributors"]
 version = "0.1.0"
 
+[deps]
+BoundingSphere = "747eb165-47b8-53f2-ad32-9704a7dfc50a"
+JLD = "4138dd39-2aa7-5051-a626-17a0bb65d9c8"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+
 [compat]
 julia = "1"
 
