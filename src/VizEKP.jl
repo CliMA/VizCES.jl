@@ -127,8 +127,8 @@ outputs are vertical profiles with the same number of vertical levels.
 """
 function plot_outputs(ekp_g::Array{Array{Float64,2},1},
                       les_g::Array{Float64,1},
-                      num_var::Int64,
-                      num_heights::Int64)
+                      num_var::Array{Int64,1},
+                      num_heights::Array{Int64,1})
     for sim in 1:length(num_var)
         h_r = range(0, 1, length=Integer(num_heights[sim]))
         for k in 1:num_var[sim]
@@ -158,22 +158,27 @@ ekp_std_scale defines a proportionality constant for the errors from each EK pro
 """
 function plot_error_evolution(ekp_err::Union{Vector{Float64}, Array{Vector{Float64},1} };
                               ekp_std_scale::Union{Float64, Array{Float64,1}}=1.0,
-                              newplot::Bool=true)
+                              newplot::Bool=true,
+                              ylims=nothing, plt_scale=:identity)
 
     if ekp_err isa Array{Vector{Float64},1}
         # Wrapper for kwarg broadcasting
         wrapper(ekp_err, ekp_std_scale) = plot_error_evolution(
-                                    ekp_err, ekp_std_scale=ekp_std_scale, newplot=false)
+                            ekp_err, ekp_std_scale=ekp_std_scale, 
+                            newplot=false, plt_scale=plt_scale,
+                            ylims=ylims)
         plot()
         wrapper.(ekp_err, ekp_std_scale)
     else
         ekp_err_ = deepcopy(ekp_err.*(ekp_std_scale*ekp_std_scale))
+
         if newplot
             plot(ekp_err_, lw=2)
         else
-            plot!(ekp_err_, lw=2)
+            plot!(ekp_err_, ylims=ylims, scale = plt_scale, lw=2)
         end
         xlabel!("EKP iteration")
+        ylabel!("Error")
         savefig("ekp_error.png")
     end
     return
