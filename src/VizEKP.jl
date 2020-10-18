@@ -184,4 +184,18 @@ function plot_error_evolution(ekp_err::Union{Vector{Float64}, Array{Vector{Float
     return
 end
 
+"""
+    function plot_covmat(ekpobj_filename::String)
+
+Plots the observational covariance matrix as a heat map.
+
+"""
+function plot_covmat(ekpobj_filename::String)
+
+    ekp_ = load(string(ekpobj_filename,"/eki.jld"))
+    # Scale by diagonal elements
+    heatmap(ekp_["truth_cov"], clim=(0, minimum(diag(ekp_["truth_cov"])) ), yflip=true)
+    savefig(string("obs_covmat_", ekpobj_filename,".png"))
+    return
+end
 end #module
