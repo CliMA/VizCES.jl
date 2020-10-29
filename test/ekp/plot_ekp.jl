@@ -32,15 +32,13 @@ ekp5 = load(string(filedir5,"/eki.jld"))
 ekp6 = load(string(filedir6,"/eki.jld"))
 ekp7 = load(string(filedir7,"/eki.jld"))
 
-# Bounding sphere
-ekp_radius, ekp_center_jump = ekp_sphere_evol(ekp3["eki_u"])
-plot(ekp_radius)
-savefig("ekp_nradius.png")
-
 # Param range evolution
 min_shape = size(ekp3["eki_u"])[1]
 ekiu_arr = [ekp["eki_u"][1:min_shape], 
         ekp2["eki_u"][1:min_shape], ekp3["eki_u"][1:min_shape]]
+
+# Bounding sphere
+plot_bounding_radius(ekiu_arr)
 
 plot_ekp_params(ekiu_arr, exp_transform=true, param_names=param_names)
 
@@ -48,5 +46,5 @@ err_arr = [ekp["eki_err"], ekp2["eki_err"], ekp3["eki_err"]]
 println(ekp7["eki_err"])
 plot_error_evolution(err_arr, ekp_std_scale=[1.0, 1.0, 1.0], ylims=[1.0e2, 2.0e4])
 
-plot_outputs(ekp3["eki_g"], ekp3["truth_mean"], num_var, num_heights)
+plot_output_profiles(ekp3["eki_g"], ekp3["truth_mean"], num_var, num_heights)
 
