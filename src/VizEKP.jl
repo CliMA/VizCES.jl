@@ -7,15 +7,17 @@ using Statistics
 using BoundingSphere
 
 export ekp_sphere_evol
-export plot_outputs
+export plot_bounding_radius
 export plot_ekp_params
 export plot_error_evolution
+export plot_covmat
+export plot_output_profiles
 
 """
     function ekp_sphere_evol(ekp_u::Array{Array{Float64,2},1})
 
-Returns the time evolution of the BoundingSphere parameters (center, radius)
-for the EK particle ensemble.
+Returns the evolution with EKP iteration of the BoundingSphere
+parameters (center, radius) for the EK particle ensemble.
 """
 function ekp_sphere_evol(ekp_u::Array{Array{Float64,2},1})
     ekp_center = zeros((length(ekp_u), length(ekp_u[1][1,:])))
@@ -31,6 +33,46 @@ function ekp_sphere_evol(ekp_u::Array{Array{Float64,2},1})
         end
     end
     return ekp_radius, ekp_center_jump
+end
+
+"""
+    function plot_bounding_radius(
+        ekp_u::Union{Array{Array{Float64,2},1}, Array{Array{Array{Float64,2},1},1}};
+        normalized::Bool=false,
+        newplot::Bool=true,
+        ylims=nothing,)
+
+Plots the evolution of the BoundingSphere radius for one or several EKPs.
+"""
+function plot_bounding_radius(
+    ekp_u::Union{Array{Array{Float64,2},1}, Array{Array{Array{Float64,2},1},1}};
+    normalized::Bool=true,
+    newplot::Bool=true,
+    ylims=nothing,)
+
+    if ekp_u isa Array{Array{Array{Float64,2},1},1}
+        # Wrapper for kwarg broadcasting
+        wrapper(ekp_u) = plot_bounding_radius(
+                            ekp_u, normalized=normalized,
+                            newplot=false, ylims=ylims)
+        plot()
+        wrapper.(ekp_u)
+    else
+
+        ekp_radius, _ = ekp_sphere_evol(ekp_u)
+        if normalized
+            ekp_radius = ekp_radius./ekp_radius[1]
+        end
+        if newplot
+            plot(ekp_radius, lw=2)
+        else
+            plot!(ekp_radius, ylims=ylims, lw=2)
+        end
+        xlabel!("EKP iteration")
+        ylabel!("Min sphere radius")
+        savefig("ekp_radius.png")
+    end
+    return
 end
 
 """
@@ -125,10 +167,11 @@ the function returns a single plot with the errors from all EK processes provide
 ekp_std_scale defines a proportionality constant for the errors from each EK process.
 
 """
-function plot_error_evolution(ekp_err::Union{Vector{Float64}, Array{Vector{Float64},1} };
-                              ekp_std_scale::Union{Float64, Array{Float64,1}}=1.0,
-                              newplot::Bool=true,
-                              ylims=nothing, plt_scale=:identity)
+function plot_error_evolution(
+    ekp_err::Union{Vector{Float64}, Array{Vector{Float64},1} };
+    ekp_std_scale::Union{Float64, Array{Float64,1}}=1.0,
+    newplot::Bool=true,
+    ylims=nothing, plt_scale=:identity)
 
     if ekp_err isa Array{Vector{Float64},1}
         # Wrapper for kwarg broadcasting
@@ -154,14 +197,15 @@ function plot_error_evolution(ekp_err::Union{Vector{Float64}, Array{Vector{Float
 end
 
 """
-    function plot_covmat(cov::Array{FT, 2};
+    function plot_covmat(cov::Array{Float64, 2};
                      figname::Union{String, Nothing}=nothing)
 
 Plots the given covariance matrix as a heat map.
 
 """
-function plot_covmat(cov::Array{FT, 2};
-                     figname::Union{String, Nothing}=nothing)
+function plot_covmat(
+    cov::Array{Float64, 2};
+    figname::Union{String, Nothing}=nothing)
 
     # Scale by diagonal elements
     heatmap(cov, clim=(0, minimum(diag(cov)) ), yflip=true)
@@ -184,10 +228,12 @@ Plots the mean output from the last EK ensemble, as well as the mean of the true
 for a model whose outputs are vertical profiles of quantities of interest.=, with the
 same number of vertical levels.
 """
-function plot_output_profiles(ekp_g::Array{Array{Float64,2},1},
-                      true_g::Array{Float64,1},
-                      num_var::Array{Int64,1},
-                      num_heights::Array{Int64,1})
+function plot_output_profiles(
+    ekp_g::Array{Array{Float64,2},1},
+    true_g::Array{Float64,1},
+    num_var::Array{Int64,1},
+    num_heights::Array{Int64,1})
+
     for sim in 1:length(num_var)
         h_r = range(0, 1, length=Integer(num_heights[sim]))
         for k in 1:num_var[sim]
