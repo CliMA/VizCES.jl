@@ -18,7 +18,6 @@ Returns the time evolution of the BoundingSphere parameters (center, radius)
 for the EK particle ensemble.
 """
 function ekp_sphere_evol(ekp_u::Array{Array{Float64,2},1})
-    #N-dimensional measures
     ekp_center = zeros((length(ekp_u), length(ekp_u[1][1,:])))
     ekp_radius = zeros(length(ekp_u))
     ekp_center_jump = zeros(length(ekp_u))
@@ -39,8 +38,8 @@ end
                          exp_transform::Bool=false,
                          param_names::Union{Vector{String}, Nothing}=nothing)
 
-Plots the evolution of EK parameters with time. The ensemble is represented by 
-the mean, min and max value of each parameter at each timestep. 
+Plots the evolution of EK parameters with EKP iteration. The ensemble is represented by 
+the mean, min and max values of each parameter at each EKP iteration. 
 
 If exp_transform, the parameter values are exponentiated before plotting.
 """
@@ -117,36 +116,6 @@ function plot_ekp_params(
 end
 
 """
-    function plot_outputs(ekp_g::Array{Array{Float64,2},1},
-                      les_g::Array{Float64,1},
-                      num_var::Int64,
-                      num_heights::Int64)
-
-Plots the mean output from the last EK ensemble. It is assumed that all 
-outputs are vertical profiles with the same number of vertical levels.
-"""
-function plot_outputs(ekp_g::Array{Array{Float64,2},1},
-                      les_g::Array{Float64,1},
-                      num_var::Array{Int64,1},
-                      num_heights::Array{Int64,1})
-    for sim in 1:length(num_var)
-        h_r = range(0, 1, length=Integer(num_heights[sim]))
-        for k in 1:num_var[sim]
-            inf_lim = Integer(
-                num_heights[sim]*(k-1) + (num_heights[1:sim-1]'*num_var[1:sim-1]))+1
-            sup_lim = Integer( inf_lim + num_heights[sim] - 1)
-            y_model_mean = mean(ekp_g[end][:,inf_lim:sup_lim],dims=1)[1,:]
-
-            plot(les_g[inf_lim:sup_lim] , h_r, label="LES", lw=2)
-            plot!(y_model_mean, h_r, label="SCM", lw=2, ls=:dash)
-            ylabel!("Normalized height")
-            savefig(string("sim_",sim,"_output_variable",k,".png"))
-        end
-    end
-    return
-end
-
-"""
     function plot_error_evolution(ekp_err::Union{Vector{Float64}, Array{Vector{Float64},1} };
                               ekp_std_scale::Union{Float64, Array{Float64,1}}=1.0 )
 
@@ -185,17 +154,55 @@ function plot_error_evolution(ekp_err::Union{Vector{Float64}, Array{Vector{Float
 end
 
 """
-    function plot_covmat(ekpobj_filename::String)
+    function plot_covmat(cov::Array{FT, 2};
+                     figname::Union{String, Nothing}=nothing)
 
-Plots the observational covariance matrix as a heat map.
+Plots the given covariance matrix as a heat map.
 
 """
-function plot_covmat(ekpobj_filename::String)
+function plot_covmat(cov::Array{FT, 2};
+                     figname::Union{String, Nothing}=nothing)
 
-    ekp_ = load(string(ekpobj_filename,"/eki.jld"))
     # Scale by diagonal elements
-    heatmap(ekp_["truth_cov"], clim=(0, minimum(diag(ekp_["truth_cov"])) ), yflip=true)
-    savefig(string("obs_covmat_", ekpobj_filename,".png"))
+    heatmap(cov, clim=(0, minimum(diag(cov)) ), yflip=true)
+    if !isnothing(figname)
+        figname_ = string(figname, ".png")
+    else
+        figname_ = "covmat.png"
+    end
+    savefig(figname_)
     return
 end
+
+"""
+    function plot_output_profiles(ekp_g::Array{Array{Float64,2},1},
+                      true_g::Array{Float64,1},
+                      num_var::Int64,
+                      num_heights::Int64)
+
+Plots the mean output from the last EK ensemble, as well as the mean of the true output,
+for a model whose outputs are vertical profiles of quantities of interest.=, with the
+same number of vertical levels.
+"""
+function plot_output_profiles(ekp_g::Array{Array{Float64,2},1},
+                      true_g::Array{Float64,1},
+                      num_var::Array{Int64,1},
+                      num_heights::Array{Int64,1})
+    for sim in 1:length(num_var)
+        h_r = range(0, 1, length=Integer(num_heights[sim]))
+        for k in 1:num_var[sim]
+            inf_lim = Integer(
+                num_heights[sim]*(k-1) + (num_heights[1:sim-1]'*num_var[1:sim-1]))+1
+            sup_lim = Integer( inf_lim + num_heights[sim] - 1)
+            y_model_mean = mean(ekp_g[end][:,inf_lim:sup_lim],dims=1)[1,:]
+
+            plot(true_g[inf_lim:sup_lim] , h_r, label="Truth", lw=2)
+            plot!(y_model_mean, h_r, label="Model", lw=2, ls=:dash)
+            ylabel!("Normalized height")
+            savefig(string("sim_",sim,"_output_variable",k,".png"))
+        end
+    end
+    return
+end
+
 end #module
