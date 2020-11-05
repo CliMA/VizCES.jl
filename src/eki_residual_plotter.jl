@@ -29,42 +29,27 @@ end
 ######################################################################33
 function main()
 
-    #variables
-    homedir=split(pwd(),"/utils")[1]*"/"
-    outdir=homedir*"output/"
+    #object
+    @load ekpdir*"ekp.jld2" ekpobj
 
-    disc="T21"
-    tdisc="T21"
-    res="l"
-    numlats=32
-    exp_id="designs_"*disc*"_ysample_seed300"
-    truth_id="_phys"
-    ekidir=outdir*"eki_"*tdisc*"truth"*truth_id*"_"*res*exp_id*"/"
-    
 
     #Plotting parameters
-    min_eki_it=1
-    max_eki_it=10
-    #load the ensemble parameters
-    @load ekidir*"eki.jld2" ekiobj
-
-    u=ekiobj.u[min_eki_it:max_eki_it]#it x [enssize x param]
-    ens_size = ekiobj.J
+    min_ekp_it=1
+    max_ekp_it=10
+    
+    u=ekpobj.u[min_ekp_it:max_ekp_it]#it x [enssize x param]
     
     #get sd
     u_sd = get_marginal_sd.(u) #u_sd[i] = [RH_sd,tau_sd] 
     u_sd = cat(u_sd...,dims=1) #make into matrix with 2 columns
     
     #get error
-    #g_residual = ekiobj.error
-    g_residual = map(x->compute_error_new(ekiobj,x), min_eki_it:max_eki_it)
+    g_residual = map(x->compute_error_new(ekpobj,x), min_ekp_it:max_ekp_it)
 
     iterations = 0:size(u_sd)[1]-1 #start at 0 for "ICs"    
     #plot - SD of parameters
     gr(size=(500,500))
     Plots.scalefontsizes(1.25)
-
-#    circ=Shape(Plots.partialcircle(0, 2π))
 
     plot(iterations, 
          u_sd[:,1], 
@@ -92,7 +77,7 @@ function main()
 
     xlabel!("Iteration")
     ylabel!("Ensemble Standard Deviation")
-    savefig(outdir*"sd_eki.pdf")
+    savefig(outdir*"sd_ekp.pdf")
 
     #plot - Residual
     
@@ -113,7 +98,7 @@ function main()
          bottom_margin=50px)
     xlabel!("Iteration")
     ylabel!("Residual")
-    savefig(outdir*"residual_eki.pdf")
+    savefig(outdir*"residual_ekp.pdf")
 
 
 end
