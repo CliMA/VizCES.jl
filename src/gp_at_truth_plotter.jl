@@ -6,135 +6,71 @@ using LinearAlgebra
 using JLD2
 using Statistics
 
+
+"""
+Plotting script for GP at the true parameters compared with evaluations of the model at the true parameters 
+(for use in perfect model setting where one knows the true parameters)
+
+produces a plot for each data type in the truth 
+- with the truth mean and 95% confidence interval, 
+- with gp predicted mean and 95% interval 
+
+
+Requires:
+--------
+- gp prediction of mean at the true parameters
+- gp prediction of covariance at the true parameters
+- truthobject (processed data from true parameters)
+- the data types (currently assumed equal sized)
+"""
+
 function main()
 
-    homedir = split(pwd(),"/utils")[1]*"/"
-    outdir = homedir*"output/"
-    disc = "T21"
-    exp_id = "ldesigns_"*disc*"_ysample_seed300"
-    truth_id="_phys"
-
-    gpdir=outdir*"eki_T21truth"*truth_id*"_"*exp_id*"/"
-    truthdir=gpdir
     #load data objects
     @load gpdir*"gpmean_at_true.jld2" y_pred
     @load gpdir*"gpcov_at_true.jld2" y_predcov    
     @load truthdir*"truth.jld2" truthobj #uninflated truth run which has been stored
 
-    lats = truthobj.lats
-    nlats = length(lats)
+    #simple assumption on data 
+    data_types = 3
+    plot_idx = reshape(1:size(truthobj.mean), (data_types,size(truthobj.mean)/data_types))
 
-    rhum_idx = 1:nlats
-    precip_idx = nlats + 1 : 2 * nlats
-    ext_idx = 2 * nlats + 1 : 3 * nlats
-    
     #prepare the "GCM" (with no inflation)
-    g_t = hcat(truthobj.sample...)
-    truth_mean = truthobj.mean
-    # we could use quantiles here but we know already the truth is normally distributed
-    # A = cov(truthobj.sample)
-    # B = perform_truth_inflation(truthobj.data_names, truth_mean, A, 0.2, 0.2, 0.2)
-    # println(sum(sum(B - truthobj.cov)))
-    # exit()
-    
-    #add the inflation of the truth:
-    obs_truth_cov = 0.5*truthobj.cov
-    gcm_truth_cov = 0.5*truthobj.cov
-    truth_sd = sqrt.(diag(gcm_truth_cov)) # this is the cov the gp learns
+    truth_mean = truthobj.mean 
+    training_cov = cov(truthobj.sample) # this is the cov the gp learns
+    truth_sd = sqrt.(diag(training_cov)) 
     
     #prepare the GP
     gp_mean = y_pred
-    gp_var = diag(reshape(y_predcov,(96,96)))
-    
+    gp_var = diag(reshape(y_predcov,(size(truthobj.mean),size(truthobj.mean))))
     gp_sd = sqrt.(gp_var)
-    println(size(gp_sd))
+   
     #backend
     gr(size=(350,350))
     Plots.scalefontsizes(1.25)
     
+    for dt in 1:data_types
+        xcoords = plot_idx[dt]
+        plot(xcoords,
+             gp_mean[xcoords],
+             ribbon=(2*gp_sd[xcoords],2*gp_sd[xcoords]),
+             grid=false,
+             legend=false,
+             framestyle=:box,
+             dpi=300,
+             color="orange",
+             left_margin=50px,
+             bottom_margin=50px)
 
-    #relative humidity  
-    plot(lats,
-         gp_mean[rhum_idx],
-         ribbon=(2*gp_sd[rhum_idx],2*gp_sd[rhum_idx]),
-         xlims=(-90,90),
-         ylims=(0.3,1.0),
-         grid=false,
-         legend=false,
-         framestyle=:box,
-         dpi=300,
-         color="orange",
-         left_margin=50px,
-         bottom_margin=50px)
-
-    plot!(lats,
-         truth_mean[rhum_idx],
-         yerror=(2*truth_sd[rhum_idx], 2*truth_sd[rhum_idx]),
-         marker=:circ,
-          markersize=1.5,
-          markerstrokewidth=0.5,
-         color="blue")
-    xlabel!("Latitude")
-    ylabel!("Relative Humidity")
-    savefig(outdir*"rhumplot_gp_and_gcm.pdf")
-    
-
-    #daily precipitation  
-    plot(lats,
-         gp_mean[precip_idx],
-         ribbon=(2*gp_sd[precip_idx],2*gp_sd[precip_idx]),
-         xlims=(-90,90),
-         ylims=(0.0,20.0),
-         grid=false,
-         legend=false,
-         framestyle=:box,
-         dpi=300,
-         color="orange",
-         left_margin=50px,
-         bottom_margin=50px)
-
-    plot!(lats,
-         truth_mean[precip_idx],
-         yerror=(2*truth_sd[precip_idx], 2*truth_sd[precip_idx]),
-         marker=:circ,
-          markersize=1.5,
-          markerstrokewidth=0.5,
-         color="blue")
-    xlabel!("Latitude")
-    ylabel!("Precipitation [mm/day]")
-    savefig(outdir*"precipplot_gp_and_gcm.pdf")
-    
-    #extreme precipitation  
-    plot(lats,
-         gp_mean[ext_idx],
-         ribbon=(2*gp_sd[ext_idx],2*gp_sd[ext_idx]),
-         xlims=(-90,90),
-         ylims=(0.0,0.3),
-         grid=false,
-         label="GP",
-         legend=:topright,
-         framestyle=:box,
-         dpi=300,
-         color="orange",
-         left_margin=50px,
-         bottom_margin=50px)
-
-    plot!(lats,
-          truth_mean[ext_idx],
-          yerror=(2*truth_sd[ext_idx], 2*truth_sd[ext_idx]),
-          label="GCM",
-          marker=:circ,
-          markersize=1.5,
-          markerstrokewidth=0.5,
-          color="blue")
-    xlabel!("Latitude")
-    ylabel!("Extreme events")
-    savefig(outdir*"extplot_gp_and_gcm.pdf")
-
-
-
-
-
+        plot!(xcoords,
+              truth_mean[xcoords],
+              yerror=(2*truth_sd[xcoords], 2*truth_sd[xcoords]),
+              marker=:circ,
+              markersize=1.5,
+              markerstrokewidth=0.5,
+              color="blue")
+        savefig("gp_and_gcm_"*string(dt)*".pdf")
+    end
 
 end
 
