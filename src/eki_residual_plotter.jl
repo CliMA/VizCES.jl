@@ -11,6 +11,8 @@ using Statistics
 using .EKI
 
 
+
+# utility functions
 function get_marginal_sd(param_sample)
     # n_samples, n_params = size(param_sample)
     param_var=var(param_sample,dims=1)
@@ -26,14 +28,28 @@ function compute_error_new(self::EKIObj,it)
     return err
 end
 
-######################################################################33
+"""
+Plotting script for the ensemble, It plots the following traced over iterations of EKP:
+- The residual of mean difference to the truth data weighted by the covariance (as stored in the EKP)
+- The standard deviations of each parameter in the ensemble
+
+I assume 2 parameters for now, but easily extendable to more
+
+requires:
+---------
+- EKP object
+- the min and make of EKP iterations to plot over
+
+"""
+
+######################################################################
 function main()
 
     #object
     @load ekpdir*"ekp.jld2" ekpobj
 
 
-    #Plotting parameters
+    #plot from min to max iteration of ekp
     min_ekp_it=1
     max_ekp_it=10
     
@@ -41,7 +57,7 @@ function main()
     
     #get sd
     u_sd = get_marginal_sd.(u) #u_sd[i] = [RH_sd,tau_sd] 
-    u_sd = cat(u_sd...,dims=1) #make into matrix with 2 columns
+    u_sd = cat(u_sd...,dims=1) #make into matrix with num_param columns
     
     #get error
     g_residual = map(x->compute_error_new(ekpobj,x), min_ekp_it:max_ekp_it)
