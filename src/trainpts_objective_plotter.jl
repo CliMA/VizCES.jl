@@ -12,7 +12,7 @@ using LinearAlgebra
 using JLD2
 using Statistics
 
-using .EKI
+using .EKP
 
 """
 Plotting script for the Parameter Ensemble and the GP,
@@ -43,41 +43,40 @@ function main()
 
     
     #Plotting parameters
-    min_eki_it = 1
-    max_eki_it = 6
+    min_ekp_it = 1
+    max_ekp_it = 6
    
     #contour plot levels
     n_levels = 30
    
-    yt = ekiobj.g_t #the inflated sample used in eki
+    yt = ekpobj.g_t #the inflated sample used in ekp
+
     # the truth
     @load truthdir*"truth.jld2" truthobj
     gcm_truth_cov = cov(truthobj.sample)
-    obs_truth_cov = truthobj.cov - gcm_truth_cov
-   
-    u = ekiobj.u[min_eki_it:max_eki_it]#it x [enssize x param]
+    obs_truth_cov = truthobj.cov
+    inflation_cov = obs_truth_cov - 2*gcm_truth_cov
+
+    u = ekpobj.u[min_ekp_it:max_ekp_it]#it x [enssize x param]
     u_flat = cat(u...,dims=1)#[(itxens) x param]
-    ens_size = ekiobj.J
+    ens_size = ekpobj.J
 
     # meshes, see emulate_sample.jl, "emulator_uncertainty_graphs(...)"
-    # GP mean and sd in svd - transformed coordinates
-    # mesh = [outputdim x N x N ]
-    # We calculate the objective function by 
-    # Obj(i,j) = 0.5sum_{k=1}^outputdim [ sd(i,j)^{-2} (y(k) - GP(k,i,j))^2 ] 
-    # note we do not account for the additional terms from prior
+    # note we do not account for the additional terms from prior in this objective
     
     # transform y into SVD coordinates first.
     SVD = svd(gcm_truth_cov) #svd.U * svd.S * svd.Vt (can also get Vt)
     Dinv = Diagonal(1.0 ./ sqrt.(SVD.S)) #diagonal matrix of 1/eigenvalues
     y_transform = Dinv*SVD.Vt*yt
-    
+    inflation_cov_transform = Dinv*SVD.Vt*inflation_cov*SVD.V*Dinv
+
     objective = zeros((length(param1vals),length(param2vals)))
     for i = 1:length(param1vals)
         for j = 1:length(param2vals)
             diff = mean_mesh[:,i,j] - y_transform
-            data_var = Diagonal(1.0 ./ var_mesh[:,i,j] )
-            gp_fidelity = 0.5*sum(log.(var_mesh[:,i,j] ))      
-            objective[i,j] = 0.5*diff'*data_var*diff + gp_fidelity
+            data_cov = Diagonal(var_mesh[:,i]) + inflation_cov_transform #Gamma + Delta
+            gp_fidelity = 0.5*log(det(data_cov)) 
+            gp_objective_fixed_tau[i] = 0.5*diff'*inv(data_cov)*diff + gp_fidelity
         end
     end
     minobj = minimum(objective)
@@ -111,7 +110,7 @@ function main()
          left_margin=50px,
          bottom_margin=50px)
     
-    #plot the EKI points over the top
+    #plot the EKP points over the top
     circ = Shape(Plots.partialcircle(0, 2π))
     
     #get EKP points in domain
