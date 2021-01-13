@@ -17,72 +17,80 @@ using Random
 using StatsPlots, KernelDensity
 using Interpolations
 
+"""
+Plotting script for the Parameter Ensemble and the GP,
 
+produces two plots,
+
+Requires:
+--------
+- MCMC object 
+- (if eki_opt_flag = True) EKP Object
+- truthobject
+- (transformations and inverse tranformations real -> prior space (if required)
+- units transform to add units (if required)
+A KNOWN ISSUE (in certain settings)
+-----------------------------------
+The contour calculates an integral of g(x) = max(0, f(x)>C ) over a box x in D using an integrator. 
+If g(x) is if small support relative to the size of D the adaptive refinement of the integrator can miss it,
+temporary solve -> reduce size of D. Otherwise one needs to adjust/replace the blackbox integrator
+"""
+######################################################
 function main()
 
-    #provide contours? (NB exclude min and max value of posterior - these will be included)
-    #if true, then put in the contour values,
-    # if false then code tries to find contours which bound the desired percentiles
-    contour_provided=true
-    if contour_provided
-        # pre-calculated contours for paper
-        input_contours=[ 0.010931395363755262,0.47360176939380966, 1.2698317730628141] #100
-        #input_contours=[0.008546721811537945, 0.3055192376001232, 0.8163661671511474] #200
-        #input_contours=[0.01271488771979764, 0.5600734817558085, 1.4829691339258493] #300
-        #input_contours=[0.009910002269882732, 0.5146163328374784, 1.5181388274911354] #400
-    else
-        integral_target = [0.5,0.75,0.99]
-    end
     Random.seed!(100)
 
-    disc="T21"
-    res="l"
-    tdisc="T21"
-    truth_id="_phys" #"_meanparam"
-#    exp_id=res*"designs_"*disc*"_inflateyonly_400"
-    exp_id=res*"designs_"*disc*"_param_grid_1600_inflateyonly_take2_100_from_value"
-    eki_opt_flag = false
+    @load "truth.jld2" truthobj
+    @load "mcmc.jld2" mcmcobj
+   
+    ekp_opt_flag = false
     label_flag = false
 
-    #create an Array of the MCMC stored
+    if ekp_opt_flag:
+        @load "ekp.jld2" ekpobj 
+    end    
+
+        #create an Array of the MCMC stored
     homedir=split(pwd(),"/test")[1]*"/"
     outdir=homedir*"output/"
-    datdir=outdir*"eki_"*tdisc*"truth"*truth_id*"_"*exp_id*"/"
-
+   
+    
     hours=3600.0
     true_params_raw=[0.7,7200/hours]
     true_params = [transform_rh(true_params_raw[1]),transform_t(true_params_raw[2]*hours) ]
     
     #load the ensemble optimized params
-    if eki_opt_flag
+    if ekp_opt_flag
         @load datdir*"eki.jld2" ekiobj
     
-        U=ekiobj.u[6]#typically the last iteration of EKI we use
-        eki_params=mean(U,dims=1)
-        eki_params_raw = [inverse_transform_rh(eki_params[1]),inverse_transform_t(eki_params[2])/hours]
+        U=ekpobj.u[end]
+        ekp_params = mean(U,dims=1)
+        ekp_params_raw = [inverse_transform_rh(ekp_params[1]),inverse_transform_t(ekp_params[2])/hours]
     end
 
     #load MCMC results get prior
-    mcmcfile=datdir*"mcmc_1-32.jld2"
+    posterior_samples=mcmc.posterior
+           
 
-    sample_min=10_001
-    
-    @load mcmcfile mcmc
-    posterior_samples=mcmc.posterior[sample_min:end,:]
-    println("plotter will plot samples from ", sample_min, " to ", size(mcmc.posterior,1)) 
-    
-       
+    #provide contours? (NB exclude min and max value of posterior - these will be included)
+    # if true, then put in the contour values 
+    # if false then put in desired percentiles and the code will try to find contours which bound the desired percentiles
+    contour_provided=false
+
+    if contour_provided #provide contour values
+        input_contours=[]
+    else #provide percentiles
+        integral_target = [0.5,0.75,0.99]
+    end
+  
     #plots
     gr(size=(500,500))
     Plots.scalefontsizes(1.5)
 
-    #Box to plot grid
+   
+    #Box size
     rhbd = [-1.8,-0.3]
     taubd = [6,10]
-
-    #small box to find contours
-#    rhbd = [-1.3, -0.5]
-#    taubd = [7.5, 10.0]
 
     xmin = [rhbd[1],taubd[1]]
     xmax = [rhbd[2],taubd[2]]
@@ -94,6 +102,9 @@ function main()
     max_cval = maximum(maximum(postd.density))
     println("contour upper bound: ", max_cval)
     
+    # Stage 1
+    # Find the contours if required
+
     if contour_provided
         contour_values = input_contours
     else 
@@ -179,8 +190,8 @@ function main()
          bottom_margin=50px)
     
     plot!([true_params[1]],[true_params[2]], markercolor=:blue, markershape=:circle,msw=0,markersize=5)#need the extra [ ] 
-    if eki_opt_flag
-        plot!([eki_params[1]],[eki_params[2]], markercolor=:red, markershape=:cross,markersize=8)#need the extra [ ] 
+    if ekp_opt_flag
+        plot!([ekp_params[1]],[ekp_params[2]], markercolor=:red, markershape=:cross,markersize=8)#need the extra [ ] 
     end
     if label_flag
         xlabel!("Logit-relative humidity")
@@ -212,8 +223,8 @@ function main()
          bottom_margin=50px)
 
     plot!([true_params_raw[1]],[true_params_raw[2]], markercolor=:blue, markershape=:circle,msw=0,markersize=5)#need the extra [ ] 
-    if eki_opt_flag 
-        plot!([eki_params_raw[1]],[eki_params_raw[2]], markercolor=:red, markershape=:cross,markersize=8)#need the extra [ ] 
+    if ekp_opt_flag 
+        plot!([ekp_params_raw[1]],[ekp_params_raw[2]], markercolor=:red, markershape=:cross,markersize=8)#need the extra [ ] 
     end
     if label_flag
     xlabel!("Relative humidity")
