@@ -56,8 +56,10 @@ function main()
    
     
     hours=3600.0
-    true_params_raw=[0.7,7200/hours]
-    true_params = [transform_rh(true_params_raw[1]),transform_t(true_params_raw[2]*hours) ]
+    
+    true_params_raw = [0,1]
+    true_unitless_params_raw = remove_units_transform(true_params_raw) 
+    true_params = transform_real_to_prior(true_unitless_params_raw)
     
     #load the ensemble optimized params
     if ekp_opt_flag
@@ -65,7 +67,8 @@ function main()
     
         U=ekpobj.u[end]
         ekp_params = mean(U,dims=1)
-        ekp_params_raw = [inverse_transform_rh(ekp_params[1]),inverse_transform_t(ekp_params[2])/hours]
+        ekp_params_raw = transform_prior_to_real(ekp_params)
+        ekp_params_raw = apply_units_transform(ekp_params_raw)
     end
 
     #load MCMC results get prior
@@ -89,14 +92,14 @@ function main()
 
    
     #Box size
-    rhbd = [-1.8,-0.3]
-    taubd = [6,10]
+    param1bd = [-1.8,-0.3]
+    param2bd = [6,10]
 
-    xmin = [rhbd[1],taubd[1]]
-    xmax = [rhbd[2],taubd[2]]
+    xmin = [param1bd[1],param2bd[1]]
+    xmax = [param1bd[2],param2bd[2]]
      
     #Kernel density estimator
-    postd=kde(posterior_samples, boundary=((rhbd[1],rhbd[2]),(taubd[1],taubd[2])) )
+    postd=kde(posterior_samples, boundary=((param1bd[1],param1bd[2]),(param2bd[1],param2bd[2])) )
     interp_postd = InterpKDE(postd)
     min_cval = 0.0
     max_cval = maximum(maximum(postd.density))
@@ -167,10 +170,11 @@ function main()
           
         end
     end
-        
-    rhbd_raw = reverse([inverse_transform_rh(rhbd[1]), inverse_transform_rh(rhbd[2])])
-    taubd_raw = [inverse_transform_t(taubd[1]), inverse_transform_t(taubd[2])] ./ hours
     
+    #apply to low are upper bounds
+    param1bd_raw,param2bd_raw = transform_prior_to_real.([param1bd,param2bd])
+    param1bd_raw,param2bd_raw = apply_units_transform.([param1bd_raw,param2bd_raw])    
+
     c_values = sort([contour_values... , max_cval, 0.0])
    
     #plot in transformed coordinates
@@ -183,8 +187,8 @@ function main()
          dpi=300,
          legend=false,
          grid=false,
-         xlims=rhbd,
-         ylims=taubd,
+         xlims=param1bd,
+         ylims=param2bd,
          framestyle=:box,
          left_margin=50px,
          bottom_margin=50px)
@@ -194,17 +198,17 @@ function main()
         plot!([ekp_params[1]],[ekp_params[2]], markercolor=:red, markershape=:cross,markersize=8)#need the extra [ ] 
     end
     if label_flag
-        xlabel!("Logit-relative humidity")
-        ylabel!("Log-timescale (seconds)")
+        xlabel!("transformed param1")
+        ylabel!("transformed param2")
     end
     savefig(outdir*"posterior_density_transformed.pdf")
 
-    #untransform
+    #plot in untransformed coordinates
     posterior_samples_raw = zeros(size(posterior_samples))
-    posterior_samples_raw[:,1] = inverse_transform_rh.(posterior_samples[:,1])
-    posterior_samples_raw[:,2] = inverse_transform_t.(posterior_samples[:,2]) ./ hours
+    posterior_samples_raw[:,1] = transform_prior_to_real.(posterior_samples)
+    posterior_samples_raw[:,2] = apply_units_transform.(posterior_samples_raw)
     
-    postd_raw = kde(posterior_samples_raw, boundary = ((rhbd_raw[1],rhbd_raw[2]),(taubd_raw[1],taubd_raw[2])) )
+    postd_raw = kde(posterior_samples_raw, boundary = ((param1bd_raw[1],param1bd_raw[2]),(param2bd_raw[1],param2bd_raw[2])) )
     max_cval_raw = maximum(maximum(postd_raw.density))
     c_values_raw = sort([contour_values... , max_cval_raw, 0.0])
     plot(postd_raw,
@@ -216,8 +220,8 @@ function main()
          dpi=300,
          grid=false,
          legend=false,
-         xlims=rhbd_raw,
-         ylims=taubd_raw,
+         xlims=param1bd_raw,
+         ylims=param2bd_raw,
          framestyle=:box,
          left_margin=50px,
          bottom_margin=50px)
@@ -227,8 +231,8 @@ function main()
         plot!([ekp_params_raw[1]],[ekp_params_raw[2]], markercolor=:red, markershape=:cross,markersize=8)#need the extra [ ] 
     end
     if label_flag
-    xlabel!("Relative humidity")
-    ylabel!("Timescale (hours)")
+    xlabel!("untransformed param1")
+    ylabel!("untransformed param2")
     end
     savefig(outdir*"posterior_density_untransformed.pdf")
 
