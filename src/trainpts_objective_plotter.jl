@@ -136,7 +136,7 @@ function main()
     param1vals_raw,param2vals_raw = apply_units_transform([param1vals_raw,param2vals_raw])
 
     u_raw_in_bd = transform_prior_to_real(u_in_bd)
-    u_raw_in_bd = apply_units_transform(u_in_bd)
+    u_raw_in_bd = apply_units_transform(u_raw_in_bd)
     
     param1_bd_raw = [minimum(param1vals_raw), maximum(param1vals_raw)]
     param2_bd_raw = [minimum(param2vals_raw), maximum(param2vals_raw)]
